@@ -1,0 +1,162 @@
+import pandas as pd
+import numpy as np
+import scanpy as sc
+
+# Introduction to the first approach:
+"""
+This code implements a method for analyzing RNA-seq data using a specific data organization format, commonly encountered in research papers. In this format, gene expression values are stored in a CSV file, where rows represent genes and columns represent individual cells. Additionally, raw gene counts may be available in a separate file but are not utilized in this analysis.
+
+The steps involved in this approach include:
+1. Loading the expression values from a CSV file.
+2. Normalizing the data, including log transformation and adding a pseudocount.
+3. Creating an AnnData object for further analysis.
+4. Calculating summary statistics and quality checks on the processed data.
+
+This approach provides a standardized workflow for analyzing RNA-seq data, allowing researchers to easily perform preprocessing and downstream analysis tasks.
+"""
+
+# Instructions:
+# Ensure the CSV file 'express_vals.csv' contains gene names as row indices and expression values for each cell as columns.
+# The first row may contain cell identifiers, which will be removed.
+# The first column may contain additional information (e.g., gene IDs), which will be used as row indices.
+# If raw_reads.csv is available and necessary for your analysis, uncomment the corresponding line to load it.
+
+# Load raw_reads.csv (uncomment if necessary)
+# raw_reads = pd.read_csv('raw_reads.csv', index_col=0)
+
+# Read the expression values from the CSV file and set the first column as the index
+express_vals = pd.read_csv('express_vals.csv', index_col=0)
+
+# Remove the first row (cell numbers) and the first column (if it doesn't contain expression data)
+express_vals = express_vals.iloc[1:, :]  # Assuming the first row contains cell numbers
+
+# Step 2: Normalization (log transformation and adding pseudocount)
+express_vals_normalized = express_vals.apply(lambda x: np.log1p(x) + 1)
+
+# Access the gene names
+gene_names = express_vals_normalized.index
+
+# Create a DataFrame with gene names
+genes_df = pd.DataFrame(index=gene_names)
+
+# Create AnnData object with gene expression data and gene names
+adata = sc.AnnData(X=express_vals_normalized.values.T,  # Transpose the data
+                   var=genes_df)  # Pass the DataFrame with gene names as var
+
+# Print the first few gene names
+print("First 10 gene names:")
+print(gene_names[:10])
+
+# Check the shape of the AnnData object
+print("Shape of the AnnData object:")
+print(adata.shape)
+
+# Check the range of values in adata.X
+print("Min:", np.min(adata.X))
+print("Max:", np.max(adata.X))
+
+
+import pandas as pd
+import scanpy as sc
+from scipy.io import mmread
+
+# Introduction to the second approach:
+"""
+This code implements an alternative approach for analyzing RNA-seq data, which involves using data organized differently compared to the previous approach.
+
+In this approach, we load gene information and expression data from separate files. The gene information is stored in a tab-separated values (TSV) file containing two columns: Gene_ID and Gene_Name. The expression data is stored in a Matrix Market format file (.mtx.gz).
+
+The steps involved in this approach include:
+1. Loading gene information from the TSV file.
+2. Loading expression matrix data from the Matrix Market format file.
+3. Creating an AnnData object, where gene names are set as var_names.
+4. Filtering out specific genes, if necessary.
+5. Normalizing the dataset.
+6. Applying log transformation and adding a pseudocount.
+
+This approach offers flexibility in handling RNA-seq data from various sources and formats, allowing for customized preprocessing steps depending on the specific requirements of the analysis.
+"""
+# Load gene information from the TSV file for the first dataset
+gene_file = "GSM4300502_gastruloid1.genes.tsv.gz"
+genes_df = pd.read_csv(gene_file, sep='\t', header=None, names=["Gene_ID", "Gene_Name"])
+
+# Load matrix data from the first dataset
+expression_df = "GSM4300502_gastruloid1.matrix.mtx.gz"
+matrix = mmread(expression_df).toarray()
+
+# Create AnnData object for the first dataset
+unfiltered_adata = sc.AnnData(X=matrix.T, var=genes_df)
+# Set the gene names as the index for var_names
+unfiltered_adata.var_names = genes_df["Gene_Name"]
+unfiltered_adata.var_names_make_unique()
+
+# Filter out genes starting with 'RP'
+adata = unfiltered_adata[:, ~unfiltered_adata.var_names.str.startswith('RP')]
+
+# Normalize the dataset
+sc.pp.normalize_total(adata, target_sum=1e4)
+
+# Add a pseudocount before applying the log transformation
+# Adjust the pseudocount as needed based on your data
+pseudocount = 1  # Choose an appropriate pseudocount value
+adata.X += pseudocount
+adata.X = np.log1p(adata.X)
+
+# Checks:
+# Check the shape of the AnnData object
+print("Shape of the AnnData object:")
+print(adata.shape)
+
+# Check the range of values in adata.X
+print("Min:", adata.X.min())
+print("Max:", adata.X.max())
+
+import scanpy as sc
+import matplotlib.pyplot as plt
+"""
+This code implements a pipeline for analyzing single-cell RNA sequencing (scRNA-seq) data using the Scanpy library. The pipeline consists of several steps designed to uncover cellular heterogeneity and identify marker genes associated with distinct cell populations.
+The steps involved in this pipeline are as follows:
+1. Selecting highly variable genes: This step identifies genes that exhibit significant variation in expression across cells, which are crucial for distinguishing cell types and states.
+2. Constructing a cell-cell distance matrix: Using the highly variable genes, a neighborhood graph of cells is constructed based on their gene expression profiles. This graph represents the similarity between cells and serves as the basis for subsequent analysis.
+3. Applying the Leiden algorithm for clustering: The Leiden algorithm is used to partition cells into clusters based on the neighborhood graph. This step aims to group together cells with similar expression profiles, revealing distinct cell populations.
+4. Storing clustering results: The cluster labels obtained from the Leiden algorithm are stored within the AnnData object, allowing for further downstream analysis and visualization.
+5. Visualizing clusters using UMAP: Uniform Manifold Approximation and Projection (UMAP) is applied to reduce the dimensionality of the data and visualize cell clusters in a two-dimensional space. UMAP preserves local and global structure, making it ideal for visualizing complex cellular landscapes.
+6. Identifying marker genes: Marker genes that are highly expressed in specific cell clusters are identified using statistical methods such as the Wilcoxon rank-sum test. These marker genes provide insights into the molecular signatures associated with different cell types or states.
+7. Visualizing marker genes on heatmap: The expression patterns of marker genes across cell clusters are visualized using a heatmap, highlighting their differential expression and providing further characterization of cell populations.
+This pipeline offers a comprehensive workflow for scRNA-seq analysis, enabling researchers to explore cellular heterogeneity and gain insights into gene expression dynamics at the single-cell level.
+"""
+# Assuming you already have an AnnData object named 'adata' containing your expression data
+
+# Step 1: Select top highly variable genes
+sc.pp.highly_variable_genes(adata, n_top_genes=4000)  # Identify highly variable genes
+adata_hvg = adata[:, adata.var['highly_variable']]  # Subset AnnData to retain highly variable genes
+
+# Step 2: Construct cell-cell distance matrix
+sc.pp.neighbors(adata_hvg, n_neighbors=50, n_pcs=30)  # Compute a neighborhood graph of cells
+
+# Step 3: Apply Leiden algorithm for clustering
+sc.tl.leiden(adata_hvg, resolution=0.75)  # Perform community detection using the Leiden algorithm
+
+# Step 4: Store the clustering results in adata.obs['leiden']
+adata.obs['leiden'] = adata_hvg.obs['leiden']  # Store cluster labels in the original AnnData object
+
+# Step 5: Visualize clusters using UMAP
+sc.tl.umap(adata_hvg)  # Compute UMAP (Uniform Manifold Approximation and Projection) embeddings
+
+# Step 6: Plot UMAP visualization with cluster colors
+sc.pl.umap(adata_hvg, color='leiden', legend_loc='on data')  # Plot UMAP with cluster colors
+
+# Step 7: Identify marker genes
+sc.tl.rank_genes_groups(adata_hvg, 'leiden', method='wilcoxon')  # Identify marker genes for each cluster
+
+# Step 8: Visualize marker genes on heatmap
+sc.pl.rank_genes_groups_heatmap(adata_hvg, groupby='leiden')  # Plot heatmap showing marker genes for each cluster
+
+# Check clusters and their genes within them
+print(adata_hvg.obs.keys())
+
+# Iterate over each cluster and print top marker genes
+for cluster in adata_hvg.obs['leiden'].unique():
+    print(f"Cluster {cluster}:")
+    marker_genes_df = sc.get.rank_genes_groups_df(adata_hvg, group=cluster)
+    print(marker_genes_df.head())
