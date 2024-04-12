@@ -4,15 +4,15 @@ import scanpy as sc
 
 # Introduction to the first approach:
 """
-This code implements a method for analyzing RNA-seq data using a specific data organization format, commonly encountered in research papers. In this format, gene expression values are stored in a CSV file, where rows represent genes and columns represent individual cells. Additionally, raw gene counts may be available in a separate file but are not utilized in this analysis.
+This code implements a method for analyzing RNA-seq data using a specific data organization format. 
+In this format, gene expression values are stored in a CSV file, where rows represent genes and columns represent individual cells. 
+Additionally, raw gene counts may be available in a separate file but are not utilized in this analysis.
 
 The steps involved in this approach include:
 1. Loading the expression values from a CSV file.
 2. Normalizing the data, including log transformation and adding a pseudocount.
 3. Creating an AnnData object for further analysis.
 4. Calculating summary statistics and quality checks on the processed data.
-
-This approach provides a standardized workflow for analyzing RNA-seq data, allowing researchers to easily perform preprocessing and downstream analysis tasks.
 """
 
 # Instructions:
@@ -62,9 +62,12 @@ from scipy.io import mmread
 
 # Introduction to the second approach:
 """
-This code implements an alternative approach for analyzing RNA-seq data, which involves using data organized differently compared to the previous approach.
+This code implements an alternative approach for analyzing RNA-seq data, which involves using data organized differently 
+compared to the previous approach.
 
-In this approach, we load gene information and expression data from separate files. The gene information is stored in a tab-separated values (TSV) file containing two columns: Gene_ID and Gene_Name. The expression data is stored in a Matrix Market format file (.mtx.gz).
+In this approach, we load gene information and expression data from separate files. The gene information is stored in a 
+tab-separated values (TSV) file containing two columns: Gene_ID and Gene_Name. 
+The expression data is stored in a Matrix Market format file (.mtx.gz).
 
 The steps involved in this approach include:
 1. Loading gene information from the TSV file.
@@ -74,8 +77,10 @@ The steps involved in this approach include:
 5. Normalizing the dataset.
 6. Applying log transformation and adding a pseudocount.
 
-This approach offers flexibility in handling RNA-seq data from various sources and formats, allowing for customized preprocessing steps depending on the specific requirements of the analysis.
+This approach offers flexibility in handling RNA-seq data from various sources and formats, allowing for customized 
+preprocessing steps depending on the specific requirements of the analysis.
 """
+
 # Load gene information from the TSV file for the first dataset
 gene_file = "GSM4300502_gastruloid1.genes.tsv.gz"
 genes_df = pd.read_csv(gene_file, sep='\t', header=None, names=["Gene_ID", "Gene_Name"])
@@ -90,7 +95,7 @@ unfiltered_adata = sc.AnnData(X=matrix.T, var=genes_df)
 unfiltered_adata.var_names = genes_df["Gene_Name"]
 unfiltered_adata.var_names_make_unique()
 
-# Filter out genes starting with 'RP'
+# Filter out genes starting with 'RP' (abundant ribosomal proteins)
 adata = unfiltered_adata[:, ~unfiltered_adata.var_names.str.startswith('RP')]
 
 # Normalize the dataset
@@ -114,7 +119,8 @@ print("Max:", adata.X.max())
 import scanpy as sc
 import matplotlib.pyplot as plt
 """
-This code implements a pipeline for analyzing single-cell RNA sequencing (scRNA-seq) data using the Scanpy library. The pipeline consists of several steps designed to uncover cellular heterogeneity and identify marker genes associated with distinct cell populations.
+This code implements a pipeline for analyzing single-cell RNA sequencing (scRNA-seq) data using the Scanpy library and data from either approach.
+The pipeline consists of several steps designed to uncover cellular heterogeneity and identify marker genes associated with distinct cell populations.
 The steps involved in this pipeline are as follows:
 1. Selecting highly variable genes: This step identifies genes that exhibit significant variation in expression across cells, which are crucial for distinguishing cell types and states.
 2. Constructing a cell-cell distance matrix: Using the highly variable genes, a neighborhood graph of cells is constructed based on their gene expression profiles. This graph represents the similarity between cells and serves as the basis for subsequent analysis.
@@ -125,7 +131,7 @@ The steps involved in this pipeline are as follows:
 7. Visualizing marker genes on heatmap: The expression patterns of marker genes across cell clusters are visualized using a heatmap, highlighting their differential expression and providing further characterization of cell populations.
 This pipeline offers a comprehensive workflow for scRNA-seq analysis, enabling researchers to explore cellular heterogeneity and gain insights into gene expression dynamics at the single-cell level.
 """
-# Assuming you already have an AnnData object named 'adata' containing your expression data
+# Assuming you already have an AnnData object named 'adata' containing your expression data which was done in either code above.
 
 # Step 1: Select top highly variable genes
 sc.pp.highly_variable_genes(adata, n_top_genes=4000)  # Identify highly variable genes
