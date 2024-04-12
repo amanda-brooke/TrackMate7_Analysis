@@ -1,0 +1,93 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import os
+### Plot speed data from multiple files and conditions from trackmate 7 csv files, grouped in time intervals
+
+# Specify the working directory
+working_directory = 'Z:\\Amanda\\whateverdirectory
+
+# Change the working directory
+os.chdir(working_directory)
+
+# Define the file names for control and treatment groups
+control_files = ['c1_edge.csv', 'c2_edge.csv']
+treatment_files = ['NM_1_edge.csv', 'NM_2_edge.csv']
+
+# Initialize empty lists to store data frames for control and treatment groups
+control_data = []
+treatment_data = []
+
+# Read data from control files
+for file in control_files:
+    control_df = pd.read_csv(file, skiprows=[1, 2, 3])  # Skip the first two rows with NaN values
+    control_df['Group'] = 'Control'  # Add a column to identify the group
+    control_data.append(control_df)
+
+# Read data from treatment files
+for file in treatment_files:
+    treatment_df = pd.read_csv(file, skiprows=[1, 2, 3])  # Skip the first two rows with NaN values
+    treatment_df['Group'] = 'Treatment'  # Add a column to identify the group
+    treatment_data.append(treatment_df)
+
+# Concatenate data frames for control and treatment groups
+combined_data = pd.concat(control_data + treatment_data)
+
+# OPTIONAL: Debugging statements
+# print("Time Intervals:", time_intervals)
+# print("Combined Data Head:", combined_data.head())
+
+# Convert EDGE_TIME from seconds to hours and add an offset of 25 hours
+combined_data['EDGE_TIME'] = combined_data['EDGE_TIME'] / 3600 + 25
+
+# Convert SPEED from microns per second to microns per minute
+combined_data['SPEED'] = combined_data['SPEED'] * 60
+
+# Define time intervals (30-minute intervals)
+# Note: Adjust the interval size according to your data
+time_intervals = range(0, int(combined_data['EDGE_TIME'].max()) + 1, 1)
+
+# Calculate average speed for each time interval for treatment and control
+# Note: This loop calculates the mean speed within each time interval for treatment and control
+treatment_avg_speed = []
+control_avg_speed = []
+
+for interval_start in time_intervals:
+    interval_end = interval_start + 0.5
+    # Calculate mean speed within each interval for treatment and control
+    treatment_avg_speed.append(combined_data[(combined_data['EDGE_TIME'] >= interval_start) & 
+                                               (combined_data['EDGE_TIME'] < interval_end) &
+                                               (combined_data['Group'] == 'Treatment')]['SPEED'].mean())
+    
+    control_avg_speed.append(combined_data[(combined_data['EDGE_TIME'] >= interval_start) & 
+                                           (combined_data['EDGE_TIME'] < interval_end) &
+                                           (combined_data['Group'] == 'Control')]['SPEED'].mean())
+
+# Plotting
+plt.figure(figsize=(10, 6))
+plt.subplots_adjust(bottom=0.15)  # Adjust bottom margin
+plt.plot(time_intervals, treatment_avg_speed, label='Treatment', color='coral', linewidth=5)
+plt.plot(time_intervals, control_avg_speed, label='Control', color='teal', linewidth=5)
+
+plt.xticks(fontsize=22)
+plt.yticks(fontsize=22)
+plt.xlabel('Time (hours)', fontsize=26)
+plt.ylabel('Average Speed (µm/min)', fontsize=26)
+plt.title('Average Speed Over Time', fontsize=34)
+plt.legend(fontsize=26)
+plt.grid(False)
+plt.show()
+
+### Calculate average speed for each time interval for only one of the data (treatment or control)
+# Plotting only the control dataset
+plt.figure(figsize=(10, 6))
+plt.subplots_adjust(bottom=0.15)  # Adjust bottom margin
+plt.plot(time_intervals, control_avg_speed, label='Control', color='teal', linewidth=5)
+
+plt.xticks(fontsize=22)
+plt.yticks(fontsize=22)
+plt.xlabel('Time (hours)', fontsize=26)
+plt.ylabel('Average Speed (µm/min)', fontsize=26)
+plt.title('Average Speed Over Time (Control)', fontsize=34)
+plt.legend(fontsize=26)
+plt.grid(False)
+plt.show()
