@@ -1,0 +1,142 @@
+### To be used with trackmate 7 data from stardist detector, using edge and spot data, ignoring the LABEL column which is non-numeric
+# Import necessary libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+# Specify the working directory
+working_directory = 'Z:\\Amanda\\whatever
+
+# Change the working directory
+os.chdir(working_directory)
+
+# Specify the file paths for your CSV files
+spots_csv_file = 'c1_spots.csv'
+edges_csv_file = 'c1_edge.csv'
+
+# Read spot and edge data from CSV files
+spot_table = pd.read_csv(spots_csv_file, header=0, skiprows=[1, 2])  # Skip the first 2 rows
+edge_table = pd.read_csv(edges_csv_file, header=0, skiprows=[1, 2])
+
+# List of non-numeric columns
+non_numeric_cols = ['LABEL']
+
+# Convert non-numeric columns to numeric for spot_table and edge_table
+for table in [spot_table, edge_table]:
+    numeric_cols = table.columns.difference(non_numeric_cols)
+    table[numeric_cols] = table[numeric_cols].apply(pd.to_numeric, errors='coerce')
+    table.fillna(0, inplace=True)
+
+# Check columnes and datatype to ensure everything that is needed to be numeric is indeed
+print(spot_table.dtypes)
+print(edge_table.dtypes)
+
+print(spot_table.columns)
+print(edge_table.columns)
+
+# Initialize lists to store u, v, source_x, source_y, target_x, and target_y values
+u_values, v_values, source_x_values, source_y_values, target_x_values, target_y_values = [], [], [], [], [], []
+
+# Iterate through each row in the edge data
+for _, row in edge_table.iterrows():
+    # Get source and target IDs
+    source_id, target_id = row['SPOT_SOURCE_ID'], row['SPOT_TARGET_ID']
+    
+    # Find corresponding rows in the spot data
+    source_spot = spot_table[spot_table['ID'] == source_id]
+    target_spot = spot_table[spot_table['ID'] == target_id]
+    
+    # Extract source and target positions
+    source_x, source_y = source_spot['POSITION_X'].values[0], source_spot['POSITION_Y'].values[0]
+    target_x, target_y = target_spot['POSITION_X'].values[0], target_spot['POSITION_Y'].values[0]
+    
+    # Calculate u and v
+    u, v = target_x - source_x, target_y - source_y
+    
+    # Append values to lists
+    u_values.append(u)
+    v_values.append(v)
+    source_x_values.append(source_x)
+    source_y_values.append(source_y)
+    target_x_values.append(target_x)
+    target_y_values.append(target_y)
+
+# Add u, v, source_x, source_y, target_x, and target_y to edge data DataFrame
+edge_table['u'], edge_table['v'] = u_values, v_values
+edge_table['source_x'], edge_table['source_y'] = source_x_values, source_y_values
+edge_table['target_x'], edge_table['target_y'] = target_x_values, target_y_values
+
+# Convert time from seconds to hours and adjust values
+edge_table['EDGE_TIME'] = (edge_table['EDGE_TIME'] / 3600) + 23
+
+# Plot quiver plot with color-coded vectors by time
+plt.figure(figsize=(15, 12))
+plt.quiver(edge_table['source_x'], edge_table['source_y'], edge_table['u'], edge_table['v'], edge_table['EDGE_TIME'], angles='xy', scale_units='xy', scale=1, cmap='plasma', alpha=0.95, headaxislength=0, headlength=0, headwidth=0, minlength=0.1, label='Individual Vectors')
+
+# Set plot labels and title
+plt.xlabel('X', fontsize=26)
+plt.ylabel('Y', fontsize=26)
+
+
+# OPTIONAL FOR AFTER: Plot only a slice of the graph, setting aspect ratio and then the deseired limits
+# plt.gca().set_aspect('equal', adjustable='box')
+# plt.xlim(50, 400)  # Set limit for X-axis
+# plt.ylim(300, 500)  # Set limit for Y-axis
+
+plt.title('Trajectories Over Time', fontname='Verdana', fontsize=30)
+
+# Add colorbar with increased font size
+cbar = plt.colorbar()
+cbar.set_label('Time (Hours)', rotation=270, labelpad=15, fontsize=22)
+
+# Set tick label font size for both the plot and the color bar
+plt.tick_params(axis='both', which='both', labelsize=20)
+cbar.ax.tick_params(labelsize=20)
+
+# Show plot
+plt.show()
+
+### Plot trajectories with heatmap of average min fluo intensity
+# Calculate average intensity for each edge
+edge_table['MEAN_EDGE_INTENSITY_CH1'] = (spot_table.set_index('ID').loc[edge_table['SPOT_SOURCE_ID'], 'MEAN_INTENSITY_CH1'].values + spot_table.set_index('ID').loc[edge_table['SPOT_TARGET_ID'], 'MEAN_INTENSITY_CH1'].values) / 2
+
+# Plot quiver plot with color-coded vectors by average edge intensity
+plt.figure(figsize=(15, 12))
+plt.quiver(edge_table['source_x'], edge_table['source_y'], edge_table['u'], edge_table['v'], edge_table['MEAN_EDGE_INTENSITY_CH1'], angles='xy', scale_units='xy', scale=1, cmap='plasma', alpha=0.95, headaxislength=0, headlength=0, headwidth=0, minlength=0.1, label='Individual Vectors')
+
+# Set plot labels and title
+plt.xlabel('X', fontsize=26)
+plt.ylabel('Y', fontsize=26)
+plt.title('Mesoderm Trajectories Colored by Mean Edge Intensity (Channel 1)', fontname='Verdana', fontsize=30)
+
+# Add colorbar with increased font size
+cbar = plt.colorbar()
+cbar.set_label('Mean Edge Intensity (Channel 1)', rotation=270, labelpad=15, fontsize=22)
+
+# Set tick label font size for both the plot and the color bar
+plt.tick_params(axis='both', which='both', labelsize=20)
+cbar.ax.tick_params(labelsize=20)
+
+# Show plot
+plt.show()
+
+### Plot quiver plot with color-coded vectors by speed
+plt.figure(figsize=(15, 12))
+plt.quiver(edge_table['source_x'], edge_table['source_y'], edge_table['u'], edge_table['v'], edge_table['SPEED'], angles='xy', scale_units='xy', scale=1, cmap='plasma', alpha=0.95, headaxislength=0, headlength=0, headwidth=0, minlength=0.1, label='Individual Vectors')
+
+# Set plot labels and title
+plt.xlabel('X', fontsize=26)
+plt.ylabel('Y', fontsize=26)
+plt.title('Trajectory Speeds', fontname='Verdana', fontsize=30)
+
+# Add colorbar with increased font size
+cbar = plt.colorbar()
+cbar.set_label('Speed', rotation=270, labelpad=15, fontsize=22)
+
+# Set tick label font size for both the plot and the color bar
+plt.tick_params(axis='both', which='both', labelsize=20)
+cbar.ax.tick_params(labelsize=20)
+
+# Show plot
+plt.show()
